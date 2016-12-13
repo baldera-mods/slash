@@ -1,11 +1,9 @@
-'use strict';
-
 const entities = {
   amp: '&',
   lt: '<',
   gt: '>',
   quot: '"',
-  apos: "'"
+  apos: "'",
 };
 
 const reversedEscapeChars = {};
