@@ -53,11 +53,11 @@ class Slash {
         }
       };
 
-      dispatch.hook('cChat', 1, (event) => {
+      dispatch.hook('C_CHAT', 1, (event) => {
         return parseMessage(event);
       });
 
-      dispatch.hook('cWhisper', 1, (event) => {
+      dispatch.hook('C_WHISPER', 1, (event) => {
         // if prefixed command, use that first
         const res = parseMessage(event);
         if (res === false) {
@@ -110,7 +110,7 @@ class Slash {
   print(message, formatted) {
     message += ''; // cast to string
     if (!formatted) message = S.escapeHTML(message);
-    this.dispatch.toClient('sChat', 1, { message, channel: 206 });
+    this.dispatch.toClient('S_CHAT', 1, { message, channel: 206 });
   }
 
   get prefix() {
