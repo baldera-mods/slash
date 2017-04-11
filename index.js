@@ -100,7 +100,7 @@ class Slash {
     const cmd = command.toLowerCase()
     const cmds = map.get(this.dispatch.base);
 
-    if (cmds.has(cmd)) {
+    if (cmds[cmd]) {
       console.warn('[slash] Overriding handler for command:', cmd);
     }
 
