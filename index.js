@@ -9,73 +9,120 @@ class Slash {
   constructor(dispatch) {
     this.dispatch = dispatch;
 
-    const { base } = dispatch;
+    const base = dispatch.base || dispatch;
 
     if (!map.has(base)) {
       map.set(base, {});
 
-      function runCommand(raw) {
+      const runCommand = (raw, target) => {
+        // construct `args` array/object
         const args = S.decodeHTMLEntities(S.stripTags(raw)).split(/\s+/);
-        const cmd = args[0].toLowerCase();
+        Object.assign(args, { raw, target });
+
+        // run command handler
+        const cmd = args[0].slice(this.prefixRaw.length).toLowerCase();
         const cb = map.get(base)[cmd];
         if (typeof cb === 'function') {
-          cb(args, raw);
+          cb(args);
           return false;
-        } else if (STRICT) {
+        }
+
+        // no command handler - check if strict mode
+        if (STRICT) {
           console.error('[slash] Unrecognized command:', cmd);
           return false;
         }
-      }
+      };
 
-      function parseMessage(event) {
-        const message = event.message;
+      // check if the message begins with the command and, if so, run it
+      // otherwise check if it begins with an escaped command
+      const parseMessage = (event) => {
+        const { message } = event;
         const pos = (message.startsWith('<FONT>') ? 6 : 0);
-        if (message.startsWith(PREFIX, pos)) {
-          return runCommand(message.slice(pos + PREFIX.length));
-        } else if (message.startsWith('\\' + PREFIX, pos)) {
+
+        if (message.startsWith(this.prefix, pos)) {
+          return runCommand(message, event.target || event.channel);
+        }
+
+        // if prefix is escaped by any number of backslashes '\',
+        // strip one off and send the rest as-is
+        const regexp = new RegExp('^\\\\+' + S.escapeRegExp(this.prefix));
+        if (regexp.test(message.slice(pos))) {
           event.message = message.slice(0, pos) + message.slice(pos + 1);
           return true;
         }
-      }
+      };
 
-      dispatch.hook('cChat', (event) => {
+      dispatch.hook('cChat', 1, (event) => {
         return parseMessage(event);
       });
 
-      dispatch.hook('cWhisper', (event) => {
+      dispatch.hook('cWhisper', 1, (event) => {
         // if prefixed command, use that first
         const res = parseMessage(event);
-        if (res !== undefined) {
-          return res;
+        if (res === false) {
+          // we only check false because parseMessage() may return true if it
+          // was an escaped command; in that case, we should continue as normal
+          // since the whisper target might be in slash command format
+
+          // however, if it returns false, it successfully processed the command
+          // so we don't need to do anything more
+          return false;
+        }
+
         // otherwise, use whisper target
-        } else if (event.target[0] === '/') {
-          return runCommand(event.target.slice(1) + ' ' + event.message);
+        const { target, message } = event;
+
+        // target can begin with either '/' or the raw prefix
+        // (TERA does not HTML encode whisper target)
+        let pos = -1;
+        if (target.startsWith('/')) {
+          pos = 1;
+        } else if (target.startsWith(this.prefixRaw)) {
+          pos = this.prefixRaw.length;
+        }
+
+        if (pos !== -1) {
+          // normalize the command string so that it looks like prefix form
+          const cmd = this.prefix + target.slice(pos);
+
+          const normalizedMessage = message.startsWith('<FONT>')
+            ? `<FONT>${cmd} ${message.slice(6)}`
+            : `${cmd} ${message}`;
+
+          return runCommand(normalizedMessage, 7); // set to whisper channel
         }
       });
     }
   }
 
   on(command, cb) {
+    const cmd = command.toLowerCase()
     const cmds = map.get(this.dispatch.base);
-    cmds[command.toLowerCase()] = cb;
+
+    if (cmds.has(cmd)) {
+      console.warn('[slash] Overriding handler for command:', cmd);
+    }
+
+    cmds[cmd] = cb;
   }
 
   print(message, formatted) {
-    message += '';
+    message += ''; // cast to string
+    if (!formatted) message = S.escapeHTML(message);
+    this.dispatch.toClient('sChat', 1, { message, channel: 206 });
+  }
 
-    if (!formatted) {
-      message = S.escapeHTML(message);
-    }
+  get prefix() {
+    return S.escapeHTML(PREFIX);
+  }
 
-    this.dispatch.toClient('sChat', {
-      channel: 206,
-      authorID: { high: 0, low: 0 },
-      unk1: 0,
-      gm: 0,
-      unk2: 0,
-      authorName: '',
-      message: message,
-    });
+  get prefixRaw() {
+    return PREFIX;
+  }
+
+  get strict() {
+    return STRICT;
   }
 }
 

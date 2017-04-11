@@ -6,26 +6,30 @@ const entities = {
   apos: "'",
 };
 
-const reversedEscapeChars = {};
-for (let k in entities) reversedEscapeChars[entities[k]] = k;
+// TERA only converts these characters.
+const escapeChars = {
+  '<': 'lt',
+  '>': 'gt',
+};
 
 module.exports = {
-  stripTags: s => s.replace(/<\/?[^<>]*>/gi, ''),
+  stripTags(s) {
+    return s.replace(/<\/?[^<>]*>/gi, '');
+  },
 
-  escapeHTML: s => s.replace(/[&<>"']/g, m => `&${reversedEscapeChars[m]};`),
+  escapeHTML(s) {
+    return s.replace(/[<>]/g, m => `&${escapeChars[m]};`);
+  },
 
-  decodeHTMLEntities: s => s
-    .replace(/&#(\d+);?/g, (_, code) => String.fromCharCode(code))
-    .replace(/&#[xX]([A-Fa-f0-9]+);?/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/&([^;\W]+;?)/g, (m, e) => {
-      const target = entities[e.replace(/;$/, '')];
-      switch (typeof target) {
-        case 'number':
-          return String.fromCharCode(target);
-        case 'string':
-          return target;
-        default:
-          return m;
-      }
-    }),
+  decodeHTMLEntities(s) {
+    return (s
+      .replace(/&#(\d+);?/g, (_, code) => String.fromCharCode(code))
+      .replace(/&#[xX]([A-Fa-f0-9]+);?/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/&([^;\W]+;?)/g, (m, e) => entities[e.replace(/;$/, '')] || m)
+    );
+  },
+
+  escapeRegExp(s) {
+    return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  },
 };
