@@ -53,11 +53,11 @@ class Slash {
         }
       };
 
-      dispatch.hook('C_CHAT', 1, (event) => {
+      dispatch.hook('C_CHAT', 1, {order: 10}, (event) => {
         return parseMessage(event);
       });
 
-      dispatch.hook('C_WHISPER', 1, (event) => {
+      dispatch.hook('C_WHISPER', 1, {order: 10}, (event) => {
         // if prefixed command, use that first
         const res = parseMessage(event);
         if (res === false) {
